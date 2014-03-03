@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Homework 2 Graph</title>
+<style>
+  .link {
+    stroke: gray;
+    stroke-width: 1.5px;
+  }
+
+  .node {
+    fill: #66CC66;
+    stroke: #000;
+    stroke-width: 1px;
+  }
+
+  .node:hover {
+    fill: red;
+  }
+
+  circle:hover{
+    opacity: 0.6;
+  }
+
+</style>
+<body>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+  <form>
+  Scale:
+    <label><input type="radio" name="scale" value="normal" checked> Normal</label>
+    <label><input type="radio" name="scale" value="time" > Time </label>
+  </form>
+  <form>
+<script>
+
+var width = 900,
+    height = 700;
+
+var svg = d3.select("body").append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+var fill = d3.scale.category10();
+
+var nodeData;
+d3.json("https://api.github.com/repos/ccgus/fmdb/commits", function (jsondata) {
+
+    nodeData = jsondata.map(function(d) { 
+  //    console.log(d)
+      return d; });
+
+    //console.log(nodeData[0]["commit"]["author"]["name"])
+
+    var graph = {nodes:[], links:[]};
+
+    var numOfNodes = nodeData.length;
+    var authors = nodeData.map(function(data){
+      return data["commit"]["author"]["name"];
+    })
+//    console.log(authors)
+    var uniqueAuthors = []
+    $.each(authors, function(i, el){
+      if($.inArray(el, uniqueAuthors) === -1) uniqueAuthors.push(el);
+    });
+
+//    console.log(uniqueAuthors);
+
+    var nb_nodes = numOfNodes, nb_cat = uniqueAuthors.length;
+    nodeData.sort(compare)
+    nodeData.forEach(function(node){
+  //    console.log(node)
+      graph["nodes"].push(node);
+    })
+
+   // console.log(graph)
+
+    var text = svg.selectAll("text")
+                      .data(uniqueAuthors)
+                      .enter()
+                      .append("text")
+                      .attr("x", 50)
+                      .attr("y", function(d, i){
+                        //console.log(d);
+                        //var index = uniqueAuthors.indexOf(d["commit"]["author"]["name"])
+                        return height/5 + i * 20
+                      })
+                      .text(function(d){
+                        return d
+                      });
+
+    //find the links
+    console.log("Hello")
+    for (var i=0; i<graph.nodes.length; i++){
+      var currentNode = graph.nodes[i]
+      //console.log(currentNode)
+      var parents = currentNode["parents"]
+      for (var j=0; j<parents.length; j++){
+        var parent = parents[j]
+        //console.log(parent)
+        for (var k=0; k<graph.nodes.length; k++){
+          currentNode2 = graph.nodes[k]
+          if (i != k && currentNode2["sha"] == parent["sha"]){
+            console.log(currentNode["sha"])
+            console.log(currentNode2["sha"])
+            graph.links.push({"source": i, "target": k})
+
+          }
+        }
+      }
+    }
+    //console.log(graph.links)
+
+// // build the arrow.
+//     svg.append("svg:defs").selectAll("marker")
+//     .data(["end"])      // Different link/path types can be defined here
+//   .enter().append("svg:marker")    // This section adds in the arrows
+//     .attr("id", String)
+//     .attr("viewBox", "0 -5 10 10")
+//     .attr("refX", 15)
+//     .attr("refY", -1.5)
+//     .attr("markerWidth", 6)
+//     .attr("markerHeight", 6)
+//     .attr("orient", "auto")
+//   .append("svg:path")
+//     .attr("d", function(d){
+//       return "M" + d.x + d.y + L
+//     }"M0,-5L10,0L0,5");
+
+// // add the links and the arrows
+// var path = svg.append("svg:g").selectAll("path")
+//     .data(graph.links)
+//   .enter().append("svg:path")
+//     .attr("class", function(d) { return "link "})
+//     .attr("marker-end", "url(#end)")
+//     .attr("d", )
+
+    // graph.nodes.map(function(d, i) {
+    //   var parents = graph.nodes["parents"].map()
+    //   parents.map
+    //   graph.nodes.map(function(e, j) {
+        
+    // })})
+
+//    console.log(graph)
+
+    // Generate the force layout
+    var force = d3.layout.force()
+        .size([width, height])
+        .charge(-50)
+        .linkDistance(10)
+        .on("tick", tick)
+        .on("start", function(d) {})
+        .on("end", function(d) {})
+
+    function tick(d) {
+
+      graph_update(0);
+    }
+
+    function random_layout() {
+      
+      force.stop();
+
+      graph.nodes.forEach(function(d, i) {
+        d.x = width/4 + 2*width*Math.random()/4;
+        d.y = height/4 + 2*height*Math.random()/4;
+      })
+      
+      graph_update(500);
+    }
+
+    function force_layout() {
+
+     force.nodes(graph.nodes)
+          .links(graph.links)
+          .start();
+    }
+
+    function line_layout() {
+
+      force.stop();
+
+      graph.nodes.forEach(function(d, i) {
+        d.y = height/2;
+      })
+
+      graph_update(500);
+    }
+
+    function compare(a,b) {
+     if (Date.parse(a["commit"]["committer"]["date"]) < Date.parse(b["commit"]["committer"]["date"]))
+       return -1;
+     if (Date.parse(a["commit"]["committer"]["date"]) > Date.parse(b["commit"]["committer"]["date"]))
+        return 1;
+      return 0;
+    }
+
+    function line_cat_layout() {
+
+      force.stop();
+
+      graph.nodes.forEach(function(d, i) {
+        var index = uniqueAuthors.indexOf(d["commit"]["author"]["name"])
+        //console.log(index)
+        d.x = width/4 + i*20; 
+        d.y = height/5 + index*20;
+      })
+
+      graph_update(500);
+    }
+
+
+    function line_cat_layout_time() {
+    
+      //console.log(times)
+      var dataset = d3.map(function(d){
+        return d["commit"]["committer"]["date"]
+      })
+
+      console.log(dataset)
+
+      var scale = d3.scale.linear()
+                  .domain([1386022812000, 1391105901000])
+                  .range([0, 600])
+
+      console.log(scale(1386022812000))
+
+      graph.nodes.forEach(function(d, i) {
+        var index = uniqueAuthors.indexOf(d["commit"]["author"]["name"])
+        //console.log(index)
+        var time = d["commit"]["committer"]["date"]
+        var parsedTime = Date.parse(time)
+
+        d.x = width/4 + scale(parsedTime) 
+        console.log(d.x)
+        d.y = height/5 + index*20;
+      })
+
+      graph_update(500);
+    }
+
+    function radial_layout() {
+
+      force.stop();
+
+      var r = height/2;
+
+      var arc = d3.svg.arc()
+              .outerRadius(r);
+
+      var pie = d3.layout.pie()
+      .sort(function(a, b) { return a.cat - b.cat;})
+              .value(function(d, i) { return 1; }); // equal share for each point
+
+      graph.nodes = pie(graph.nodes).map(function(d, i) {
+        d.innerRadius = 0;
+        d.outerRadius = r;
+        d.data.x = arc.centroid(d)[0]+height/2;
+        d.data.y = arc.centroid(d)[1]+width/2;
+        d.data.endAngle = d.endAngle; 
+        d.data.startAngle = d.startAngle; 
+        return d.data;
+      })
+
+      graph_update(500);
+    }
+
+    function category_color() {
+      d3.selectAll("circle").transition().duration(500).style("fill", function(d) { return fill(d.cat); });
+    }
+
+    function category_size() {
+      d3.selectAll("circle").transition().duration(500).attr("r", function(d) { return Math.sqrt((d.cat+1)*10); });
+    }
+
+    function graph_update(delay) {
+
+      link.transition().duration(delay)
+          .attr("x1", function(d) { return d.target.x; })
+          .attr("y1", function(d) { return d.target.y; })
+          .attr("x2", function(d) { return d.source.x; })
+          .attr("y2", function(d) { return d.source.y; });
+
+      node.transition().duration(delay)
+          .attr("transform", function(d) { 
+            return "translate("+d.x+","+d.y+")"; 
+          });
+    }
+
+    d3.select("input[value=\"normal\"]").on("click", line_cat_layout);
+    d3.select("input[value=\"time\"]").on("click", line_cat_layout_time);
+
+    d3.select("input[value=\"force\"]").on("click", force_layout);
+    d3.select("input[value=\"random\"]").on("click", random_layout);
+    d3.select("input[value=\"line\"]").on("click", line_layout);
+    d3.select("input[value=\"line_cat\"]").on("click", line_cat_layout);
+    d3.select("input[value=\"radial\"]").on("click", radial_layout);
+
+    d3.select("input[value=\"nocolor\"]").on("click", function() {
+      d3.selectAll("circle").transition().duration(500).style("fill", "#66CC66");
+    })
+
+    d3.select("input[value=\"color_cat\"]").on("click", category_color);
+
+    d3.select("input[value=\"nosize\"]").on("click", function() {
+      d3.selectAll("circle").transition().duration(500).attr("r", 5);
+    })
+
+    d3.select("input[value=\"size_cat\"]").on("click", category_size);
+
+    var link = svg.selectAll(".link")
+                  .data(graph.links)
+                .enter().append("line")
+                  .attr("class", "link")
+
+    var node = svg.selectAll(".node")
+                  .data(graph.nodes)
+                .enter()
+                  .append("g").attr("class", "node");
+
+    node.append("circle")
+        .attr("r", 5)
+
+//     d3.json("https://api.github.com/repos/ccgus/fmdb/branches", function (jsondata) {
+//       var branches = jsondata;
+//       console.log(branches);
+
+//       branches.forEach(function(branch){
+//         var string = "https://api.github.com/repos/ccgus/fmdb/commits?sha=" + branch["name"] 
+//         d3.json(string, function (jsondata) {
+//           console.log(jsondata)
+//         }  
+//       );
+
+//     });
+      
+      
+// }
+    force_layout();
+    line_cat_layout();
+
+    var colors = ["blue", "green", "red", "yellow", "orange", "purple", "pink", "#00FFFF", "#000000", "#C0C0C0"]
+    d3.selectAll("circle").transition().duration(500).style("fill", function(d){
+      var index = uniqueAuthors.indexOf(d["commit"]["author"]["name"])
+      return colors[index]
+    });
+
+    svg.selectAll("circle")
+   .append("svg:title")
+   .text(function(d) { return d["commit"]["committer"]["date"]; });
+
+  });
+
+
+
+</script>
+</body>
+</html>
